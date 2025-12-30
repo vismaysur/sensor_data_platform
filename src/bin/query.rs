@@ -38,7 +38,7 @@ impl FromStr for UnsignedMillis {
         let ms = match unit {
             "h" => val * 60 * 60 * 1000,
             "m" => val * 60 * 1000,
-            "s" => val * 100,
+            "s" => val * 1000,
             _ => return Err(format!("Unknown unit: {unit}")),
         };
 
@@ -51,19 +51,29 @@ fn main() {
 
     let table = EdgeTelemetryTable::new(
         Connection::open("edge_telemetry.db").expect("Underlying SQLite open call failed"),
-    );
+    )
+    .expect("Failed to create edge telemetry table");
 
     let system_time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("SystemTime is before UNIX EPOCH")
-        .as_millis() as i64;
+        .as_millis() as i32;
 
     let time_range = args
         .last
         .parse::<UnsignedMillis>()
         .expect("Failed to parse time range");
 
-    let results = table.get_readings((system_time - time_range.0 as i64, system_time));
+    let time_range = (system_time - time_range.0 as i32, system_time);
+
+    let sensor_ids: Vec<i32> = args.sensor_ids.iter().map(|&val| val as i32).collect();
+
+    let results = if sensor_ids.is_empty() {
+        table.get_readings(time_range)
+    } else {
+        table.get_readings_by_sensors(time_range, sensor_ids)
+    }
+    .expect("Failed to query edge telemetry table");
 
     let results = Table::new(results);
 

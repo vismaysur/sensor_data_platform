@@ -1,9 +1,11 @@
+use std::vec;
+
 use tabled::Tabled;
 
 #[derive(Tabled)]
 pub struct SensorReading {
-    pub timestamp: i64,
-    pub sensor_id: i64,
+    pub timestamp: i32,
+    pub sensor_id: i32,
     pub temperature: f64,
     pub pressure: f64,
     pub vibration: f64,
@@ -11,8 +13,8 @@ pub struct SensorReading {
 
 impl SensorReading {
     pub fn new(
-        timestamp: i64,
-        sensor_id: i64,
+        timestamp: i32,
+        sensor_id: i32,
         temperature: f64,
         pressure: f64,
         vibration: f64,
@@ -32,11 +34,11 @@ pub struct EdgeTelemetryTable {
 }
 
 impl EdgeTelemetryTable {
-    pub fn new(connection: rusqlite::Connection) -> EdgeTelemetryTable {
+    pub fn new(connection: rusqlite::Connection) -> Result<EdgeTelemetryTable, String> {
         connection
             .execute(
                 "CREATE TABLE IF NOT EXISTS edge_telemetry (
-                timestamp   BINARY(16) PRIMARY KEY,
+                timestamp   INT PRIMARY KEY,
                 sensor_id   INT,
                 temperature DOUBLE,
                 pressure    DOUBLE,
@@ -44,14 +46,14 @@ impl EdgeTelemetryTable {
                 )",
                 (),
             )
-            .expect(
-                "SQL could not be converted to C-compatible string / underlying SQLite call failed",
-            );
+            .map_err(
+                |_| "SQL could not be converted to C-compatible string / underlying SQLite call failed",
+            )?;
 
-        EdgeTelemetryTable { connection }
+        Ok(EdgeTelemetryTable { connection })
     }
 
-    pub fn insert_reading(&self, reading: SensorReading) {
+    pub fn insert_reading(&self, reading: SensorReading) -> Result<(), String> {
         self.connection
             .execute(
                 "INSERT INTO edge_telemetry (timestamp, sensor_id, temperature, pressure, vibration)
@@ -64,40 +66,71 @@ impl EdgeTelemetryTable {
                     &reading.vibration,
                 ),
             )
-            .expect(
-                "SQL could not be converted to C-compatible string / underlying SQLite call failed",
-            );
+            .map_err(
+                |_| "SQL could not be converted to C-compatible string / underlying SQLite call failed",
+            )?;
+
+        Ok(())
     }
 
-    pub fn get_readings(&self, time_range: (i64, i64)) -> Vec<SensorReading> {
-        let mut readings = Vec::new();
+    pub fn get_readings(&self, time_range: (i32, i32)) -> Result<Vec<SensorReading>, String> {
+        self.query(time_range, vec![])
+    }
 
-        let mut stmt = self
-            .connection
-            .prepare(
-                "SELECT * FROM edge_telemetry
-                WHERE timestamp >= ?1 AND timestamp <= ?2",
+    pub fn get_readings_by_sensors(
+        &self,
+        time_range: (i32, i32),
+        sensor_ids: Vec<i32>,
+    ) -> Result<Vec<SensorReading>, String> {
+        self.query(time_range, sensor_ids)
+    }
+
+    fn query(
+        &self,
+        time_range: (i32, i32),
+        sensor_ids: Vec<i32>,
+    ) -> Result<Vec<SensorReading>, String> {
+        let sensor_filter = if sensor_ids.is_empty() {
+            String::from("")
+        } else {
+            format!(
+                "AND sensor_id IN ({})",
+                sensor_ids
+                    .iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
             )
-            .expect(
-                "SQL could not be converted to C-compatible string / underlying SQLite call failed",
-            );
+        };
+
+        println!("{sensor_filter}");
+
+        let sql_query = format!(
+            "SELECT * FROM edge_telemetry
+                WHERE timestamp >= ?1 AND timestamp <= ?2 {}",
+            sensor_filter
+        );
+
+        let mut stmt = self.connection.prepare(&sql_query).map_err(
+            |_| "SQL could not be converted to C-compatible string / underlying SQLite call failed",
+        )?;
 
         let reading_iter = stmt
             .query_map([time_range.0, time_range.1], |row| {
                 Ok(SensorReading {
-                    timestamp: row.get(0).expect("Invalid column type/name/index"),
-                    sensor_id: row.get(1).expect("Invalid column type/name/index"),
-                    temperature: row.get(2).expect("Invalid column type/name/index"),
-                    pressure: row.get(3).expect("Invalid column type/name/index"),
-                    vibration: row.get(4).expect("Invalid column type/name/index"),
+                    timestamp: row.get(0)?,
+                    sensor_id: row.get(1)?,
+                    temperature: row.get(2)?,
+                    pressure: row.get(3)?,
+                    vibration: row.get(4)?,
                 })
             })
-            .expect("Failed to bind parameters");
+            .map_err(|_| "Failed to bind parameters")?;
 
-        for reading in reading_iter {
-            readings.push(reading.expect("Failed to construct valid SensorReading"));
-        }
+        let readings = reading_iter
+            .collect::<Result<Vec<SensorReading>, _>>()
+            .map_err(|_| "Failed to construct valid SensorReading")?;
 
-        readings
+        Ok(readings)
     }
 }
