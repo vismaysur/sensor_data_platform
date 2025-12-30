@@ -2,7 +2,11 @@
 name = "mock_edge_data"
 version = "0.1.0"
 edition = "2024"
+authors = ["Vismay Suramwar <vismaysuramwar@gmail.com>"]
+description = "Simple Sensor Data Collection Platform"
 
 [dependencies]
 rusqlite = "0.38.0"
 rand = "0.9.2"
+clap = { version = "4.5.53", features = ["derive"] }
+tabled = "0.20.0"
