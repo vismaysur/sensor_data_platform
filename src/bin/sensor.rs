@@ -32,6 +32,7 @@ fn main() {
 
     let mut rng = rand::rng();
 
+    println!("Collecting sensor #{sensor_id} telemetry in edge_telemetry.db ✅");
     loop {
         let sensor_reading = SensorReading::new(
             SystemTime::now()
