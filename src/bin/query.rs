@@ -50,7 +50,7 @@ fn main() {
     let args = Args::parse();
 
     let table = EdgeTelemetryTable::new(
-        Connection::open("edge_telemetry.db").expect("Underlying SQLite open call failed"),
+        Connection::open("./data/edge_telemetry.db").expect("Underlying SQLite open call failed"),
     )
     .expect("Failed to create edge telemetry table");
 

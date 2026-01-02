@@ -26,13 +26,13 @@ fn main() {
     let sensor_id = Args::parse().sensor_id as i32;
 
     let table = EdgeTelemetryTable::new(
-        Connection::open("edge_telemetry.db").expect("Underlying SQLite open call failed"),
+        Connection::open("./data/edge_telemetry.db").expect("Underlying SQLite open call failed"),
     )
     .expect("Failed to create edge telemetry table");
 
     let mut rng = rand::rng();
 
-    println!("Collecting sensor #{sensor_id} telemetry in edge_telemetry.db ✅");
+    println!("Collecting sensor #{sensor_id} telemetry in /data/edge_telemetry.db ✅");
     loop {
         let sensor_reading = SensorReading::new(
             SystemTime::now()

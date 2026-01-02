@@ -19,5 +19,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/src/app/target/release/sensor /usr/local/bin/sensor
+RUN mkdir /data
 
 CMD ["sensor", "--sensor-id", "0"]
