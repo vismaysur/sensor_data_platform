@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: mock-sensors
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-sensor
+      version: "1"
+  template:
+    metadata:
+      labels:
+        app: mock-sensor
+        version: "1"
+    spec:
+      volumes:
+        - name: "mock-sensor-node-data"
+          hostPath:
+            path: "/var/lib/mock-sensor-node"
+            type: DirectoryOrCreate
+      containers:
+        - image: vismay3003/mock-sensor-node:v1
+          name: mock-sensor-node
+          imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: "/data"
+              name: "mock-sensor-node-data"
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c 
+                - "find /data/edge_telemetry.db -mmin 1 | grep ."
+            initialDelaySeconds: 5
+            periodSeconds: 60
